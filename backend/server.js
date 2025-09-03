@@ -1,10 +1,3 @@
-const cloudinary = require('cloudinary').v2;
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
 // server.js
 require('dotenv').config();
 const express = require('express');
@@ -12,12 +5,11 @@ const http = require('http');
 const socketIo = require('socket.io');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const Filter = require('bad-words');
 const multer = require('multer');
-const util = require('util');
 
-// Initialize filter
-const profanityFilter = new Filter();
+// Use ONLY profanity-filter (remove bad-words)
+const ProfanityFilter = require('profanity-filter');
+const profanity = new ProfanityFilter();
 
 // Set up multer for file uploads (in memory)
 const upload = multer({ storage: multer.memoryStorage() });
@@ -53,12 +45,25 @@ const io = socketIo(server, {
 // Google Cloud Vision Client
 const { ImageAnnotatorClient } = require('@google-cloud/vision');
 const visionClient = new ImageAnnotatorClient({
-  keyFilename: 'google-vision-key.json' // ← You'll create this
+  keyFilename: 'google-vision-key.json'
+});
+
+// Cloudinary config
+const cloudinary = require('cloudinary').v2;
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 // Async wrapper for middleware
 const asyncMiddleware = fn => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
+
+// General profanity check
+function containsProfanity(...texts) {
+  return texts.some(text => typeof text === 'string' && profanity.isProfane(text));
+}
 
 // Upload route with moderation
 app.post('/upload', uploadMiddleware, asyncMiddleware(async (req, res) => {
@@ -69,12 +74,12 @@ app.post('/upload', uploadMiddleware, asyncMiddleware(async (req, res) => {
     return res.status(400).send("Missing data");
   }
 
-  // Check filename for profanity
-  if (profanityFilter.isProfane(file.originalname)) {
-    return res.status(400).send("Profane filename detected");
+  //  Check filename for profanity
+  if (containsProfanity(file.originalname)) {
+    return res.status(400).send("Profanity detected in filename");
   }
 
-  // Step 1: Run Google Vision moderation
+  //  Google Vision: Image Moderation
   const [result] = await visionClient.safeSearchDetection(file.buffer);
   const { adult, violence, racy } = result.safeSearchAnnotation;
 
@@ -83,32 +88,28 @@ app.post('/upload', uploadMiddleware, asyncMiddleware(async (req, res) => {
     return res.status(400).send("Inappropriate image content detected");
   }
 
-  // Step 2: Upload to Cloudinary (you'll do this next)
-  // For now, we'll simulate it. Replace with real Cloudinary upload later.
-  // ⚠️ In real version, upload buffer to Cloudinary and get URL
+  //  Upload to Cloudinary (Promise-based)
+  const uploadResponse = await new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { resource_type: 'image' },
+      (error, result) => {
+        if (error) reject(error);
+        else resolve(result);
+      }
+    );
+    file.buffer.pipe(stream);
+  });
 
-  // TEMP: Mock URL (replace later)
- // After moderation passes:
-const uploadResponse = await cloudinary.uploader.upload_stream(
-  { resource_type: 'image' },
-  async (error, result) => {
-    if (error) throw error;
-    const imageUrl = result.secure_url;
+  const imageUrl = uploadResponse.secure_url;
 
-    const meme = new Meme({ x, y, imageUrl });
-    await meme.save();
-    io.emit('newMeme', { x, y, imageUrl });
-    res.json({ success: true, imageUrl });
-  }
-).end(file.buffer);
-
-  // Step 3: Save to DB
-  const meme = new Meme({ x, y, imageUrl });
+  // Save to DB
+  const meme = new Meme({ x: parseFloat(x), y: parseFloat(y), imageUrl });
   await meme.save();
 
-  // Step 4: Broadcast to all clients
+  //  Broadcast to all clients
   io.emit('newMeme', { x, y, imageUrl });
 
+  // Send ONE response
   res.json({ success: true, imageUrl });
 }));
 
