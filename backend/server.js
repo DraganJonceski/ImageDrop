@@ -7,9 +7,15 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const multer = require('multer');
 
-// Use bad-words v4
-const Filter = require('bad-words');
-const profanityFilter = new Filter();
+
+const cuss = require('cuss');
+const profanityFilter = {
+  isProfane: (text) => {
+    if (!text) return false;
+    const words = text.toLowerCase().split(/[^a-zA-Z0-9]+/);
+    return words.some(word => cuss[word] > 0);
+  }
+};
 
 // Set up multer for file uploads (in memory)
 const upload = multer({ storage: multer.memoryStorage() });
@@ -71,8 +77,8 @@ app.post('/upload', uploadMiddleware, asyncMiddleware(async (req, res) => {
 
   // Check filename for profanity
   if (profanityFilter.isProfane(file.originalname)) {
-    return res.status(400).send('Profanity detected in filename');
-  }
+  return res.status(400).send("Profanity detected in filename");
+}
 
   // Google Vision: Image Moderation
   const [result] = await visionClient.safeSearchDetection(file.buffer);
