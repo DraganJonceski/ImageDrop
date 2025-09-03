@@ -5,13 +5,13 @@ WORKDIR /app
 
 # Copy backend package files
 COPY backend/package*.json ./
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # Copy backend code
 COPY backend/. .
 
-# Expose port
-EXPOSE 8080
+# Expose Railway port
+EXPOSE 5000
 
 # Start server
 CMD ["node", "server.js"]
