@@ -7,9 +7,9 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const multer = require('multer');
 
-// Use ONLY profanity-filter (remove bad-words)
-const ProfanityFilter = require('profanity-filter');
-const profanity = new ProfanityFilter();
+// Use bad-words v4
+const Filter = require('bad-words');
+const profanityFilter = new Filter();
 
 // Set up multer for file uploads (in memory)
 const upload = multer({ storage: multer.memoryStorage() });
@@ -60,35 +60,30 @@ cloudinary.config({
 const asyncMiddleware = fn => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
-// General profanity check
-function containsProfanity(...texts) {
-  return texts.some(text => typeof text === 'string' && profanity.isProfane(text));
-}
-
 // Upload route with moderation
 app.post('/upload', uploadMiddleware, asyncMiddleware(async (req, res) => {
   const { x, y } = req.body;
   const file = req.file;
 
   if (!file || !x || !y) {
-    return res.status(400).send("Missing data");
+    return res.status(400).send('Missing data');
   }
 
-  //  Check filename for profanity
-  if (containsProfanity(file.originalname)) {
-    return res.status(400).send("Profanity detected in filename");
+  // Check filename for profanity
+  if (profanityFilter.isProfane(file.originalname)) {
+    return res.status(400).send('Profanity detected in filename');
   }
 
-  //  Google Vision: Image Moderation
+  // Google Vision: Image Moderation
   const [result] = await visionClient.safeSearchDetection(file.buffer);
   const { adult, violence, racy } = result.safeSearchAnnotation;
 
   const likelihood = ['VERY_UNLIKELY', 'UNLIKELY', 'POSSIBLE', 'LIKELY', 'VERY_LIKELY'];
   if (likelihood.indexOf(adult) >= 3 || likelihood.indexOf(violence) >= 3 || likelihood.indexOf(racy) >= 3) {
-    return res.status(400).send("Inappropriate image content detected");
+    return res.status(400).send('Inappropriate image content detected');
   }
 
-  //  Upload to Cloudinary (Promise-based)
+  // Upload to Cloudinary (Promise-based)
   const uploadResponse = await new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       { resource_type: 'image' },
@@ -106,10 +101,10 @@ app.post('/upload', uploadMiddleware, asyncMiddleware(async (req, res) => {
   const meme = new Meme({ x: parseFloat(x), y: parseFloat(y), imageUrl });
   await meme.save();
 
-  //  Broadcast to all clients
+  // Broadcast to all clients
   io.emit('newMeme', { x, y, imageUrl });
 
-  // Send ONE response
+  // Send response
   res.json({ success: true, imageUrl });
 }));
 

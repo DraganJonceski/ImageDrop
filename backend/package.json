@@ -11,13 +11,13 @@
   "license": "ISC",
   "dependencies": {
     "@google-cloud/vision": "^5.3.3",
+    "bad-words": "^4.0.0",
     "cloudinary": "^2.7.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "mongoose": "^8.18.0",
     "multer": "^2.0.2",
-    "profanity-filter": "^0.2.1",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
