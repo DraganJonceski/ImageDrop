@@ -131,10 +131,12 @@ app.get('/memes', async (req, res) => {
 
 // Socket.IO
 io.on('connection', (socket) => {
-  console.log('User connected');
+  console.log('✅ User connected');
 });
 
+// Use Railway's injected PORT (fallback to 5000 locally)
 const PORT = process.env.PORT || 5000;
+
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
