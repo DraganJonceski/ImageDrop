@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+*.env.local
+
+# Secrets
+google-vision-key.json
+
+# Build files
+build/
+dist/
+out/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Deployment
+.vercel
