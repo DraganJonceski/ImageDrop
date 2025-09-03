@@ -7,16 +7,6 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const multer = require('multer');
 
-
-const cuss = require('cuss');
-const profanityFilter = {
-  isProfane: (text) => {
-    if (!text) return false;
-    const words = text.toLowerCase().split(/[^a-zA-Z0-9]+/);
-    return words.some(word => cuss[word] > 0);
-  }
-};
-
 // Set up multer for file uploads (in memory)
 const upload = multer({ storage: multer.memoryStorage() });
 const uploadMiddleware = upload.single('image');
@@ -66,6 +56,22 @@ cloudinary.config({
 const asyncMiddleware = fn => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
+// Dynamic import of cuss
+let isProfane = () => false; // fallback
+const profanityCheckPromise = import('cuss')
+  .then(module => {
+    const cussWords = module.default;
+    isProfane = (text) => {
+      if (!text) return false;
+      const words = text.toLowerCase().split(/[^a-zA-Z0-9]+/);
+      return words.some(word => cussWords[word] > 0);
+    };
+    console.log('✅ cuss module loaded');
+  })
+  .catch(err => {
+    console.error('❌ Failed to load cuss module:', err);
+  });
+
 // Upload route with moderation
 app.post('/upload', uploadMiddleware, asyncMiddleware(async (req, res) => {
   const { x, y } = req.body;
@@ -75,10 +81,13 @@ app.post('/upload', uploadMiddleware, asyncMiddleware(async (req, res) => {
     return res.status(400).send('Missing data');
   }
 
+  // Wait for profanity module to load (or timeout)
+  await profanityCheckPromise.catch(() => {});
+
   // Check filename for profanity
-  if (profanityFilter.isProfane(file.originalname)) {
-  return res.status(400).send("Profanity detected in filename");
-}
+  if (isProfane(file.originalname)) {
+    return res.status(400).send('Profanity detected in filename');
+  }
 
   // Google Vision: Image Moderation
   const [result] = await visionClient.safeSearchDetection(file.buffer);
