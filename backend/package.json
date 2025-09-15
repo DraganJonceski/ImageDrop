@@ -1,26 +1,18 @@
 {
   "name": "backend",
   "version": "1.0.0",
+  "type": "module",
   "description": "",
-  "main": "server.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node server.js"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@google-cloud/vision": "^5.3.3",
-    "cloudinary": "^2.7.0",
     "cors": "^2.8.5",
-    "cuss": "^2.2.0",
-    "dotenv": "^17.2.1",
     "express": "^5.1.0",
-    "mongoose": "^8.18.0",
-    "multer": "^2.0.2",
-    "socket.io": "^4.8.1"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.10"
+    "multer": "^2.0.2"
   }
 }
